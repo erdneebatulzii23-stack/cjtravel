@@ -1,0 +1,8 @@
+{
+  "name": "CJ Travel",
+  "description": "A comprehensive travel platform for Travelers, Guides, and Providers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
