@@ -1,12 +1,21 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const fs = require('fs');
-const { Pool } = require('pg');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+import express from 'express';
+import cors from 'cors';
+import path from 'path';
+import fs from 'fs';
+import pg from 'pg';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
 
+// Тохиргоог унших
+dotenv.config();
+
+// __dirname-ийг ES Module дээр ашиглах арга
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const { Pool } = pg;
 const app = express();
 const port = process.env.PORT || 8080;
 
@@ -62,29 +71,22 @@ app.post('/api/upload-url', async (req, res) => {
     const fileUrl = `${publicBase}/${uniqueFileName}`;
     res.json({ uploadUrl: url, fileUrl: fileUrl });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to create upload URL' });
   }
 });
 
-// --- FRONTEND SERVING (ЗАСВАР ОРСОН ХЭСЭГ) ---
+// --- FRONTEND SERVING (ЗАСВАРЛАГДСАН ХЭСЭГ) ---
+// Таны package.json дээрх Vite build нь файлуудаа шууд 'dist' хавтас руу хийдэг.
+const clientDistPath = path.join(process.cwd(), 'dist');
 
-// Angular 17+ нь 'dist/cjtravel/browser' дотор үүсдэг, хуучин нь 'dist/cjtravel' дотор үүсдэг.
-// Хоёуланг нь шалгана.
-const distPathBrowser = path.join(process.cwd(), 'dist/cjtravel/browser');
-const distPathRoot = path.join(process.cwd(), 'dist/cjtravel');
+console.log(`Checking for frontend build at: ${clientDistPath}`);
 
-let clientDistPath = null;
-
-if (fs.existsSync(distPathBrowser)) {
-    clientDistPath = distPathBrowser;
-} else if (fs.existsSync(distPathRoot)) {
-    clientDistPath = distPathRoot;
-}
-
-if (clientDistPath) {
-    console.log(`Serving frontend from: ${clientDistPath}`); // Log руу зам хэвлэнэ
+if (fs.existsSync(clientDistPath)) {
+    // Static файлуудыг уншуулах
     app.use(express.static(clientDistPath));
     
+    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах (SPA)
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
@@ -92,17 +94,15 @@ if (clientDistPath) {
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
-    console.error('Frontend build folder not found! Searched in:', distPathBrowser, 'and', distPathRoot);
+    console.error('Build folder not found at:', clientDistPath);
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.status(500).send(`
                 <h1>Deployment Error</h1>
-                <p>Frontend build folder not found.</p>
-                <p>Server looked for: <code>dist/cjtravel/browser</code> or <code>dist/cjtravel</code></p>
-                <p>Check your angular.json "outputPath" setting.</p>
+                <p>Frontend build folder ('dist') not found.</p>
+                <p>Current directory: ${process.cwd()}</p>
+                <p>Expected path: ${clientDistPath}</p>
             `);
-        } else {
-             res.status(404).json({ error: 'API route not found' });
         }
     });
 }
