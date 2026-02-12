@@ -5,7 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "vite",
-    "build": "npm install && cd backend && npm install && cd .. && npx vite build",
+    "build": "cd backend && npm install && cd .. && npx vite build",
     "watch": "vite build --watch",
     "test": "vite test",
     "start:prod": "node backend/server.js"
@@ -24,6 +24,8 @@
   },
   "devDependencies": {
     "@angular/compiler-cli": "^18.0.0",
+    "@angular-devkit/build-angular": "^18.0.0",
+    "@ngtools/webpack": "^18.0.0",
     "@types/node": "^18.0.0",
     "autoprefixer": "^10.4.19",
     "postcss": "^8.4.38",
