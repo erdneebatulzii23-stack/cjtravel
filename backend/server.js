@@ -67,20 +67,42 @@ app.post('/api/upload-url', async (req, res) => {
 });
 
 // --- FRONTEND SERVING (ЗАСВАР ОРСОН ХЭСЭГ) ---
-const clientDistPath = path.join(process.cwd(), 'dist/client');
 
-if (fs.existsSync(clientDistPath)) {
+// Angular 17+ нь 'dist/cjtravel/browser' дотор үүсдэг, хуучин нь 'dist/cjtravel' дотор үүсдэг.
+// Хоёуланг нь шалгана.
+const distPathBrowser = path.join(process.cwd(), 'dist/cjtravel/browser');
+const distPathRoot = path.join(process.cwd(), 'dist/cjtravel');
+
+let clientDistPath = null;
+
+if (fs.existsSync(distPathBrowser)) {
+    clientDistPath = distPathBrowser;
+} else if (fs.existsSync(distPathRoot)) {
+    clientDistPath = distPathRoot;
+}
+
+if (clientDistPath) {
+    console.log(`Serving frontend from: ${clientDistPath}`); // Log руу зам хэвлэнэ
     app.use(express.static(clientDistPath));
+    
     app.get('*', (req, res) => {
-        if (req.path.startsWith('/api') || (req.path.includes('.') && !req.path.endsWith('.html'))) {
-            return res.status(404).end();
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({ error: 'API route not found' });
         }
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
+    console.error('Frontend build folder not found! Searched in:', distPathBrowser, 'and', distPathRoot);
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
-            res.status(404).send("Build folder missing. Check DigitalOcean Build Logs.");
+            res.status(500).send(`
+                <h1>Deployment Error</h1>
+                <p>Frontend build folder not found.</p>
+                <p>Server looked for: <code>dist/cjtravel/browser</code> or <code>dist/cjtravel</code></p>
+                <p>Check your angular.json "outputPath" setting.</p>
+            `);
+        } else {
+             res.status(404).json({ error: 'API route not found' });
         }
     });
 }
