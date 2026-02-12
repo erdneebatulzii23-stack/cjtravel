@@ -25,8 +25,6 @@ if (process.env.DATABASE_URL) {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     });
-} else {
-    console.log("Warning: DATABASE_URL not set. Database features will fail.");
 }
 
 // 3. Storage Connection
@@ -49,9 +47,7 @@ app.get('/api/health', (req, res) => {
 });
 
 app.post('/api/upload-url', async (req, res) => {
-  if (!s3Client) {
-      return res.status(503).json({ error: 'Storage not configured.' });
-  }
+  if (!s3Client) return res.status(503).json({ error: 'Storage not configured.' });
   try {
     const { fileName, fileType } = req.body;
     const uniqueFileName = `uploads/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
@@ -62,56 +58,51 @@ app.post('/api/upload-url', async (req, res) => {
       ACL: 'public-read'
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    
-    // Handle Public URL formatting (ensure https://)
     let publicBase = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
-    if (!publicBase.startsWith('http')) {
-        publicBase = `https://${publicBase}`;
-    }
-    
+    if (!publicBase.startsWith('http')) publicBase = `https://${publicBase}`;
     const fileUrl = `${publicBase}/${uniqueFileName}`;
     res.json({ uploadUrl: url, fileUrl: fileUrl });
   } catch (error) {
-    console.error('Storage Error:', error);
     res.status(500).json({ error: 'Failed to create upload URL' });
   }
 });
 
-// --- DIGITAL OCEAN STATIC FILE SERVING ---
+// --- STATIC FILE SERVING (ЗАСВАР ОРСОН ХЭСЭГ) ---
 
-// Determine the correct path relative to the root of the project
-// Assuming server is started via "node backend/server.js" from root
-const clientDistPath = path.join(process.cwd(), 'dist/client');
+const possiblePaths = [
+    path.join(process.cwd(), 'dist/client'),
+    path.join(process.cwd(), 'dist/analog/public'),
+    path.join(process.cwd(), 'dist')
+];
 
-console.log(`Checking for static files at: ${clientDistPath}`);
-
-if (fs.existsSync(clientDistPath)) {
-    console.log('Static files directory found.');
-    app.use(express.static(clientDistPath));
-} else {
-    console.error(`ERROR: Static files directory NOT found at ${clientDistPath}`);
-    // Log directory contents to help debug
-    try {
-        console.log('Contents of root:', fs.readdirSync(process.cwd()));
-        if (fs.existsSync(path.join(process.cwd(), 'dist'))) {
-            console.log('Contents of dist:', fs.readdirSync(path.join(process.cwd(), 'dist')));
-        }
-    } catch (e) {
-        console.error('Error listing directories:', e);
+let clientDistPath = '';
+for (const p of possiblePaths) {
+    if (fs.existsSync(p) && fs.readdirSync(p).length > 0) {
+        clientDistPath = p;
+        console.log(`FOUND STATIC FILES AT: ${clientDistPath}`);
+        break;
     }
 }
 
-// Catch-all route: For any request not starting with /api
+if (clientDistPath) {
+    app.use(express.static(clientDistPath));
+}
+
+// Catch-all route
 app.get('*', (req, res) => {
-    const indexPath = path.join(clientDistPath, 'index.html');
-    if (fs.existsSync(indexPath)) {
+    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
+    
+    const indexPath = clientDistPath ? path.join(clientDistPath, 'index.html') : '';
+    
+    if (indexPath && fs.existsSync(indexPath)) {
         res.sendFile(indexPath);
     } else {
         res.status(404).send(`
-            <h1>Application Not Built</h1>
-            <p>The backend is running, but the frontend files are missing.</p>
-            <p>Expected path: ${indexPath}</p>
-            <p>Please check the Build Logs in DigitalOcean.</p>
+            <div style="font-family:sans-serif;padding:40px;text-align:center;">
+                <h2>Frontend Build Not Found</h2>
+                <p>Backend is working, but frontend files are missing.</p>
+                <p>Checked: <code>dist/client, dist/analog/public, dist</code></p>
+            </div>
         `);
     }
 });
