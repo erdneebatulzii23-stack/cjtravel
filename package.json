@@ -5,9 +5,10 @@
   "scripts": {
     "ng": "ng",
     "start": "vite",
-    "build": "vite build",
+    "build": "npm install && vite build",
     "watch": "vite build --watch",
-    "test": "vite test"
+    "test": "vite test",
+    "start:prod": "cd backend && npm install && node server.js"
   },
   "dependencies": {
     "@angular/common": "^18.0.0",
@@ -19,11 +20,7 @@
     "@google/genai": "^0.1.1",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
-    "zone.js": "~0.14.3",
-    "@angular/build": "^18.0.0",
-    "@angular/cli": "^18.0.0",
-    "@angular/compiler-cli": "^18.0.0",
-    "tailwindcss": "latest"
+    "zone.js": "~0.14.3"
   },
   "devDependencies": {
     "@angular/compiler-cli": "^18.0.0",
