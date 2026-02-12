@@ -25,6 +25,8 @@ if (process.env.DATABASE_URL) {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     });
+} else {
+    console.log("Warning: DATABASE_URL not set.");
 }
 
 // 3. Storage Connection
@@ -58,54 +60,55 @@ app.post('/api/upload-url', async (req, res) => {
       ACL: 'public-read'
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+    
     let publicBase = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
-    if (!publicBase.startsWith('http')) publicBase = `https://${publicBase}`;
+    if (!publicBase.startsWith('http')) {
+        publicBase = `https://${publicBase}`;
+    }
+    
     const fileUrl = `${publicBase}/${uniqueFileName}`;
     res.json({ uploadUrl: url, fileUrl: fileUrl });
   } catch (error) {
+    console.error('Storage Error:', error);
     res.status(500).json({ error: 'Failed to create upload URL' });
   }
 });
 
-// --- STATIC FILE SERVING (ЗАСВАР ОРСОН ХЭСЭГ) ---
+// --- FRONTEND SERVING (БАТАЛГААТАЙ ЗАСВАР) ---
 
 const possiblePaths = [
-    path.join(process.cwd(), 'dist/client'),
     path.join(process.cwd(), 'dist/analog/public'),
+    path.join(process.cwd(), 'dist/client'),
     path.join(process.cwd(), 'dist')
 ];
 
 let clientDistPath = '';
 for (const p of possiblePaths) {
-    if (fs.existsSync(p) && fs.readdirSync(p).length > 0) {
+    if (fs.existsSync(path.join(p, 'index.html'))) {
         clientDistPath = p;
-        console.log(`FOUND STATIC FILES AT: ${clientDistPath}`);
+        console.log(`✅ SUCCESS: Found frontend files at: ${clientDistPath}`);
         break;
     }
 }
 
 if (clientDistPath) {
     app.use(express.static(clientDistPath));
-}
 
-// Catch-all route
-app.get('*', (req, res) => {
-    if (req.path.startsWith('/api')) return res.status(404).json({ error: 'API not found' });
-    
-    const indexPath = clientDistPath ? path.join(clientDistPath, 'index.html') : '';
-    
-    if (indexPath && fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-    } else {
-        res.status(404).send(`
-            <div style="font-family:sans-serif;padding:40px;text-align:center;">
-                <h2>Frontend Build Not Found</h2>
-                <p>Backend is working, but frontend files are missing.</p>
-                <p>Checked: <code>dist/client, dist/analog/public, dist</code></p>
-            </div>
-        `);
-    }
-});
+    app.get('*', (req, res) => {
+        // API эсвэл шууд файл хайж байгаа бол index.html-ийг өгөхгүй
+        if (req.path.startsWith('/api') || req.path.includes('.')) {
+            return res.status(404).end();
+        }
+        res.sendFile(path.join(clientDistPath, 'index.html'));
+    });
+} else {
+    console.error('❌ ERROR: No build folder found!');
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.status(404).send("Frontend build not found. Check DigitalOcean Build Logs.");
+        }
+    });
+}
 
 // Start Server
 app.listen(port, () => {
