@@ -25,8 +25,6 @@ if (process.env.DATABASE_URL) {
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     });
-} else {
-    console.log("Warning: DATABASE_URL not set.");
 }
 
 // 3. Storage Connection
@@ -43,7 +41,6 @@ if (process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY_ID) {
 }
 
 // --- API ROUTES ---
-
 app.get('/api/health', (req, res) => {
   res.send('CJ Travel Backend is running!');
 });
@@ -60,57 +57,34 @@ app.post('/api/upload-url', async (req, res) => {
       ACL: 'public-read'
     });
     const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    
     let publicBase = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
-    if (!publicBase.startsWith('http')) {
-        publicBase = `https://${publicBase}`;
-    }
-    
+    if (!publicBase.startsWith('http')) publicBase = `https://${publicBase}`;
     const fileUrl = `${publicBase}/${uniqueFileName}`;
     res.json({ uploadUrl: url, fileUrl: fileUrl });
   } catch (error) {
-    console.error('Storage Error:', error);
     res.status(500).json({ error: 'Failed to create upload URL' });
   }
 });
 
-// --- FRONTEND SERVING (БАТАЛГААТАЙ ЗАСВАР) ---
+// --- FRONTEND SERVING (ЗАСВАР ОРСОН ХЭСЭГ) ---
+const clientDistPath = path.join(process.cwd(), 'dist/client');
 
-const possiblePaths = [
-    path.join(process.cwd(), 'dist/analog/public'),
-    path.join(process.cwd(), 'dist/client'),
-    path.join(process.cwd(), 'dist')
-];
-
-let clientDistPath = '';
-for (const p of possiblePaths) {
-    if (fs.existsSync(path.join(p, 'index.html'))) {
-        clientDistPath = p;
-        console.log(`✅ SUCCESS: Found frontend files at: ${clientDistPath}`);
-        break;
-    }
-}
-
-if (clientDistPath) {
+if (fs.existsSync(clientDistPath)) {
     app.use(express.static(clientDistPath));
-
     app.get('*', (req, res) => {
-        // API эсвэл шууд файл хайж байгаа бол index.html-ийг өгөхгүй
-        if (req.path.startsWith('/api') || req.path.includes('.')) {
+        if (req.path.startsWith('/api') || (req.path.includes('.') && !req.path.endsWith('.html'))) {
             return res.status(404).end();
         }
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
-    console.error('❌ ERROR: No build folder found!');
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
-            res.status(404).send("Frontend build not found. Check DigitalOcean Build Logs.");
+            res.status(404).send("Build folder missing. Check DigitalOcean Build Logs.");
         }
     });
 }
 
-// Start Server
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
