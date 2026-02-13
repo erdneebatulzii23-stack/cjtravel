@@ -76,37 +76,33 @@ app.post('/api/upload-url', async (req, res) => {
   }
 });
 
-// --- FRONTEND SERVING (ЗАСВАРЛАСАН ХЭСЭГ) ---
-// Таны файлыг 'public' хавтаснаас хайх болгож засав.
-// 'dist' биш 'public' хавтас ашиглах нь стандарт юм.
-const clientPath = path.join(process.cwd(), 'public');
+// --- FRONTEND SERVING (DIST folder) ---
+// Vite build хийсний дараа файлууд 'dist' хавтас руу ордог.
+const clientDistPath = path.join(process.cwd(), 'dist');
 
-console.log(`Frontend build folder check: ${clientPath}`);
+console.log(`Checking for frontend build at: ${clientDistPath}`);
 
-if (fs.existsSync(clientPath)) {
-    // Static файлуудыг (css, js, html) public хавтаснаас уншина
-    app.use(express.static(clientPath));
+if (fs.existsSync(clientDistPath)) {
+    // Static файлуудыг уншуулах
+    app.use(express.static(clientDistPath));
     
-    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах
+    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах (SPA)
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
         }
-        res.sendFile(path.join(clientPath, 'index.html'));
+        res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
-    // Хэрэв public хавтас байхгүй бол алдаа заана
-    console.error('Frontend folder ("public") not found!');
+    // Хэрэв build хийгдээгүй эсвэл dist байхгүй бол
+    console.error('Build folder not found at:', clientDistPath);
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.status(500).send(`
-                <div style="font-family: sans-serif; padding: 20px;">
-                    <h1>Байршуулах алдаа (Deployment Error)</h1>
-                    <p>Сервер <strong>'public'</strong> хавтас доторх <strong>index.html</strong> файлыг хайгаад олсонгүй.</p>
-                    <p><strong>Шийдэл:</strong> Та root (үндсэн) хавтас дотроо <code>public</code> гэсэн хавтас үүсгээд, 
-                    <code>index.html</code> файлаа тийшээ зөөнө үү.</p>
-                    <p>Server path looked at: ${clientPath}</p>
-                </div>
+                <h1>Deployment Error</h1>
+                <p>Frontend build folder ('dist') not found.</p>
+                <p>Make sure you ran 'npm run build' and index.html is in the root.</p>
+                <p>Current directory: ${process.cwd()}</p>
             `);
         }
     });
