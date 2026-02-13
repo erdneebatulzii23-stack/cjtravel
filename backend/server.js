@@ -76,32 +76,37 @@ app.post('/api/upload-url', async (req, res) => {
   }
 });
 
-// --- FRONTEND SERVING (ЗАСВАРЛАГДСАН ХЭСЭГ) ---
-// Таны package.json дээрх Vite build нь файлуудаа шууд 'dist' хавтас руу хийдэг.
-const clientDistPath = path.join(process.cwd(), 'dist');
+// --- FRONTEND SERVING (ЗАСВАРЛАСАН ХЭСЭГ) ---
+// Таны файлыг 'public' хавтаснаас хайх болгож засав.
+// 'dist' биш 'public' хавтас ашиглах нь стандарт юм.
+const clientPath = path.join(process.cwd(), 'public');
 
-console.log(`Checking for frontend build at: ${clientDistPath}`);
+console.log(`Frontend build folder check: ${clientPath}`);
 
-if (fs.existsSync(clientDistPath)) {
-    // Static файлуудыг уншуулах
-    app.use(express.static(clientDistPath));
+if (fs.existsSync(clientPath)) {
+    // Static файлуудыг (css, js, html) public хавтаснаас уншина
+    app.use(express.static(clientPath));
     
-    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах (SPA)
+    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
         }
-        res.sendFile(path.join(clientDistPath, 'index.html'));
+        res.sendFile(path.join(clientPath, 'index.html'));
     });
 } else {
-    console.error('Build folder not found at:', clientDistPath);
+    // Хэрэв public хавтас байхгүй бол алдаа заана
+    console.error('Frontend folder ("public") not found!');
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.status(500).send(`
-                <h1>Deployment Error</h1>
-                <p>Frontend build folder ('dist') not found.</p>
-                <p>Current directory: ${process.cwd()}</p>
-                <p>Expected path: ${clientDistPath}</p>
+                <div style="font-family: sans-serif; padding: 20px;">
+                    <h1>Байршуулах алдаа (Deployment Error)</h1>
+                    <p>Сервер <strong>'public'</strong> хавтас доторх <strong>index.html</strong> файлыг хайгаад олсонгүй.</p>
+                    <p><strong>Шийдэл:</strong> Та root (үндсэн) хавтас дотроо <code>public</code> гэсэн хавтас үүсгээд, 
+                    <code>index.html</code> файлаа тийшээ зөөнө үү.</p>
+                    <p>Server path looked at: ${clientPath}</p>
+                </div>
             `);
         }
     });
