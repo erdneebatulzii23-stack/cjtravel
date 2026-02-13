@@ -76,9 +76,9 @@ app.post('/api/upload-url', async (req, res) => {
   }
 });
 
-// --- FRONTEND SERVING (DIST folder) ---
-// Vite build хийсний дараа файлууд 'dist' хавтас руу ордог.
-const clientDistPath = path.join(process.cwd(), 'dist');
+// --- FRONTEND SERVING (ЗАСВАРЛАСАН ХЭСЭГ) ---
+// Таны vite.config.ts дээр outDir: 'dist/client' гэж байгаа тул энд бас тэгж заана.
+const clientDistPath = path.join(process.cwd(), 'dist/client');
 
 console.log(`Checking for frontend build at: ${clientDistPath}`);
 
@@ -94,15 +94,16 @@ if (fs.existsSync(clientDistPath)) {
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
-    // Хэрэв build хийгдээгүй эсвэл dist байхгүй бол
+    // Хэрэв build хийгдээгүй эсвэл dist/client байхгүй бол
     console.error('Build folder not found at:', clientDistPath);
     app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
             res.status(500).send(`
                 <h1>Deployment Error</h1>
-                <p>Frontend build folder ('dist') not found.</p>
-                <p>Make sure you ran 'npm run build' and index.html is in the root.</p>
+                <p>Frontend build folder ('dist/client') not found.</p>
+                <p>Ensure that 'vite.config.ts' output directory matches this path.</p>
                 <p>Current directory: ${process.cwd()}</p>
+                <p>Expected path: ${clientDistPath}</p>
             `);
         }
     });
