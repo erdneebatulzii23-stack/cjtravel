@@ -3,27 +3,24 @@ import angular from '@analogjs/vite-plugin-angular';
 import path from 'path';
 
 export default defineConfig({
-  plugins: [angular()],
-  build: {
-    outDir: 'dist/client',
-    emptyOutDir: true,
-  },
+  plugins: [
+    angular(),
+  ],
   resolve: {
-    mainFields: ['module'],
     alias: {
-      '@': path.resolve(process.cwd(), 'src'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
-  define: {
-    'process.env.API_KEY': JSON.stringify(process.env['API_KEY'] || ''),
+  build: {
+    outDir: 'dist/client', // Server.js энэ хавтсыг хайж байгаа
+    emptyOutDir: true,
+    target: 'es2020',
   },
+  // Base path-ийг заавал зааж өгнө
+  base: '/',
   server: {
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      }
-    }
-  }
+    port: 4200,
+    // DigitalOcean дээр Proxy хэрэггүй (Server.js өөрөө статик файл уншуулж байгаа)
+  },
+  // "define" хэсгийг хассан (app.component.ts дээр import.meta.env ашиглаж байгаа тул)
 });
