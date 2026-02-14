@@ -5,7 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "node backend/server.js",
-    "build": "cd backend && npm install && cd .. && npx vite build",
+    "build": "npx vite build", 
     "start:prod": "node backend/server.js"
   },
   "dependencies": {
