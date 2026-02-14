@@ -2,41 +2,37 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import fs from 'fs';
-import pg from 'pg';
+import pkg from 'pg'; // <-- ЗАССАН: pg-ийг ингэж дуудах ёстой
 import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 
-// Тохиргоог унших
+// Config
 dotenv.config();
-
-// __dirname-ийг ES Module дээр ашиглах арга
+const { Pool } = pkg; // <-- ЗАССАН
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const { Pool } = pg;
 const app = express();
 const port = process.env.PORT || 8080;
 
-// 1. Middleware
-app.use(cors({
-    origin: '*', 
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization']
-}));
+// Middleware
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-// 2. Database Connection
+// Database (Optional warning)
 let pool;
 if (process.env.DATABASE_URL) {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: { rejectUnauthorized: false }
     });
+} else {
+    console.warn("⚠️ DATABASE_URL missing. DB features won't work.");
 }
 
-// 3. Storage Connection
+// S3 Storage (Optional warning)
 let s3Client = null;
 if (process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY_ID) {
     s3Client = new S3Client({
@@ -47,12 +43,12 @@ if (process.env.S3_ENDPOINT && process.env.S3_ACCESS_KEY_ID) {
         secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
       },
     });
+} else {
+    console.warn("⚠️ S3 Config missing. File upload won't work.");
 }
 
-// --- API ROUTES ---
-app.get('/api/health', (req, res) => {
-  res.send('CJ Travel Backend is running!');
-});
+// API Routes
+app.get('/api/health', (req, res) => res.send('CJ Travel Backend Running!'));
 
 app.post('/api/upload-url', async (req, res) => {
   if (!s3Client) return res.status(503).json({ error: 'Storage not configured.' });
@@ -68,25 +64,24 @@ app.post('/api/upload-url', async (req, res) => {
     const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
     let publicBase = process.env.S3_PUBLIC_URL || process.env.S3_ENDPOINT;
     if (!publicBase.startsWith('http')) publicBase = `https://${publicBase}`;
-    const fileUrl = `${publicBase}/${uniqueFileName}`;
-    res.json({ uploadUrl: url, fileUrl: fileUrl });
+    res.json({ uploadUrl: url, fileUrl: `${publicBase}/${uniqueFileName}` });
   } catch (error) {
-    console.error(error);
+    console.error("Upload Error:", error);
     res.status(500).json({ error: 'Failed to create upload URL' });
   }
 });
 
-// --- FRONTEND SERVING (ЗАСВАРЛАСАН ХЭСЭГ) ---
-// Таны vite.config.ts дээр outDir: 'dist/client' гэж байгаа тул энд бас тэгж заана.
+// --- STATIC FILE SERVING (CRITICAL FIX) ---
+// Root folder-оос ажиллаж байгаа тул process.cwd() ашиглана
 const clientDistPath = path.join(process.cwd(), 'dist/client');
 
-console.log(`Checking for frontend build at: ${clientDistPath}`);
+console.log(`📂 Serving Frontend from: ${clientDistPath}`);
 
 if (fs.existsSync(clientDistPath)) {
-    // Static файлуудыг уншуулах
+    // 1. Static файлуудыг эхлээд уншуулна
     app.use(express.static(clientDistPath));
-    
-    // API-аас бусад бүх хүсэлтийг index.html рүү явуулах (SPA)
+
+    // 2. Бусад бүх хүсэлтийг index.html рүү явуулна (SPA Support)
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api')) {
             return res.status(404).json({ error: 'API route not found' });
@@ -94,21 +89,12 @@ if (fs.existsSync(clientDistPath)) {
         res.sendFile(path.join(clientDistPath, 'index.html'));
     });
 } else {
-    // Хэрэв build хийгдээгүй эсвэл dist/client байхгүй бол
-    console.error('Build folder not found at:', clientDistPath);
+    console.error(`❌ Build folder NOT found at: ${clientDistPath}`);
     app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-            res.status(500).send(`
-                <h1>Deployment Error</h1>
-                <p>Frontend build folder ('dist/client') not found.</p>
-                <p>Ensure that 'vite.config.ts' output directory matches this path.</p>
-                <p>Current directory: ${process.cwd()}</p>
-                <p>Expected path: ${clientDistPath}</p>
-            `);
-        }
+        res.status(500).send(`Server Error: Frontend build not found at ${clientDistPath}. Check build logs.`);
     });
 }
 
 app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`🚀 Server running on port ${port}`);
 });
