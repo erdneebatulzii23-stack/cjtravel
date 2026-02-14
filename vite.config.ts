@@ -8,7 +8,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(process.cwd(), 'src'),
     },
   },
   build: {
@@ -16,7 +16,6 @@ export default defineConfig({
     emptyOutDir: true,
     target: 'es2020',
   },
-  // Base path-ийг '/' гэж өгөх нь DigitalOcean дээр хамгийн найдвартай
   base: '/',
   server: {
     port: 4200,
