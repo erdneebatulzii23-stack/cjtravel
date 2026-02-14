@@ -652,7 +652,8 @@ export class AppComponent {
 
   providersList = computed(() => this.dataService.getUsersByRole('provider'));
 
-  ai = new GoogleGenAI({ apiKey: process.env['API_KEY'] });
+  // ЗАССАН ХЭСЭГ: process.env-ийг import.meta.env болгож өөрчлөв
+  ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_GOOGLE_API_KEY || '' });
   
   // Translator
   isListening = signal(false);
