@@ -12,15 +12,13 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist/client', // Server.js энэ хавтсыг хайж байгаа
+    outDir: 'dist/client',
     emptyOutDir: true,
     target: 'es2020',
   },
-  // Base path-ийг заавал зааж өгнө
+  // Base path-ийг '/' гэж өгөх нь DigitalOcean дээр хамгийн найдвартай
   base: '/',
   server: {
     port: 4200,
-    // DigitalOcean дээр Proxy хэрэггүй (Server.js өөрөө статик файл уншуулж байгаа)
-  },
-  // "define" хэсгийг хассан (app.component.ts дээр import.meta.env ашиглаж байгаа тул)
+  }
 });
