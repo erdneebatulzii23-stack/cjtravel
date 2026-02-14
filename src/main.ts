@@ -1,3 +1,5 @@
+console.log("!!! JAVASCRIPT ЭХЭЛЛЭЭ !!!"); // <--- Энийг нэм
+import 'zone.js';
 import 'zone.js';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
