@@ -8,6 +8,9 @@
     "build": "npx vite build",
     "start:prod": "node backend/server.js"
   },
+  "overrides": {
+    "vite": "^5.4.8"
+  },
   "dependencies": {
     "@angular/common": "^18.0.0",
     "@angular/compiler": "^18.0.0",
