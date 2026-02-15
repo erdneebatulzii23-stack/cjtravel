@@ -37,7 +37,13 @@ jobs:
       - name: Add .nojekyll and 404.html for SPA support
         run: |
           touch dist/.nojekyll
-          cp dist/index.html dist/404.html
+          if [ -f dist/index.html ]; then
+            cp dist/index.html dist/404.html
+            echo "✓ Created 404.html for SPA routing"
+          else
+            echo "Error: dist/index.html not found"
+            exit 1
+          fi
 
       - name: Diagnostic: show dist/index.html head
         run: |
