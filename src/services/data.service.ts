@@ -483,12 +483,16 @@ isOnline = signal(true);
       const reader = new FileReader();
       
       reader.onload = (e) => {
-        const result = e.target?.result as string;
+        const result = e.target?.result;
+        if (!result || typeof result !== 'string') {
+          reject(new Error('Failed to read file as data URL'));
+          return;
+        }
         resolve(result);
       };
       
       reader.onerror = () => {
-        reject(reader.error || new Error('Error reading file'));
+        reject(reader.error || new Error('Failed to read file contents'));
       };
 
       reader.readAsDataURL(file);
