@@ -98,5 +98,204 @@ isOnline = signal(true);
      }
   }
 
-  // ... (rest of the class remains unchanged)  
+  // User Authentication Methods
+  login(email: string, pass: string): boolean {
+    const user = this._users().find(u => u.email === email && u.password === pass);
+    if (user) {
+      this.currentUser.set(user);
+      return true;
+    }
+    return false;
+  }
+
+  register(name: string, email: string, pass: string, role: UserRole): boolean {
+    // Check if user already exists
+    if (this._users().find(u => u.email === email)) {
+      return false;
+    }
+
+    const newUser: User = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      email,
+      password: pass,
+      role,
+      status: role === 'traveler' ? 'active' : 'pending',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+      phone: '',
+      bio: '',
+      location: '',
+      rating: 0,
+      reviews: [],
+      followers: [],
+      following: []
+    };
+
+    this._users.update(users => [...users, newUser]);
+    this.currentUser.set(newUser);
+    return true;
+  }
+
+  logout() {
+    this.currentUser.set(null);
+  }
+
+  // Overlay Management
+  toggleOverlay(type: 'translator' | 'chat' | 'notifications' | 'call' | 'story_viewer' | 'lang_selector' | 'booking' | 'approvals' | null) {
+    if (this.activeOverlay() === type) {
+      this.activeOverlay.set(null);
+    } else {
+      this.activeOverlay.set(type);
+    }
+  }
+
+  // Post Management
+  addPost(post: Post) {
+    this._posts.update(posts => [post, ...posts]);
+  }
+
+  updatePost(updatedPost: Post) {
+    this._posts.update(posts => 
+      posts.map(p => p.id === updatedPost.id ? updatedPost : p)
+    );
+  }
+
+  deletePost(postId: string) {
+    this._posts.update(posts => posts.filter(p => p.id !== postId));
+  }
+
+  // Story Management
+  addStory(story: Story, filter: string = 'none') {
+    const newStory: Story = {
+      ...story,
+      filter
+    };
+    this._stories.update(stories => [...stories, newStory]);
+  }
+
+  deleteStory(storyId: string) {
+    this._stories.update(stories => stories.filter(s => s.id !== storyId));
+  }
+
+  // User Management (Admin)
+  approveUser(userId: string) {
+    this._users.update(users =>
+      users.map(u => u.id === userId ? { ...u, status: 'active' as UserStatus } : u)
+    );
+  }
+
+  rejectUser(userId: string) {
+    this._users.update(users =>
+      users.map(u => u.id === userId ? { ...u, status: 'rejected' as UserStatus } : u)
+    );
+  }
+
+  // Message Management
+  addMessage(message: Message) {
+    this._messages.update(messages => [...messages, message]);
+  }
+
+  // Notification Management
+  addNotification(notification: AppNotification) {
+    this._notifications.update(notifications => [notification, ...notifications]);
+  }
+
+  clearNotifications() {
+    this._notifications.set([]);
+  }
+
+  // Booking Management
+  addBooking(booking: Booking) {
+    this._bookings.update(bookings => [...bookings, booking]);
+  }
+
+  // Helper Methods
+  private checkOnlineStatus() {
+    if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
+      this.isOnline.set(navigator.onLine);
+    }
+  }
+
+  private loadFromStorage() {
+    try {
+      const usersData = localStorage.getItem('cj_users');
+      const postsData = localStorage.getItem('cj_posts');
+      const storiesData = localStorage.getItem('cj_stories');
+      const messagesData = localStorage.getItem('cj_messages');
+      const notificationsData = localStorage.getItem('cj_notifications');
+      const bookingsData = localStorage.getItem('cj_bookings');
+      const currentUserData = localStorage.getItem('cj_current_user');
+
+      if (usersData) this._users.set(JSON.parse(usersData));
+      if (postsData) this._posts.set(JSON.parse(postsData));
+      if (storiesData) this._stories.set(JSON.parse(storiesData));
+      if (messagesData) this._messages.set(JSON.parse(messagesData));
+      if (notificationsData) this._notifications.set(JSON.parse(notificationsData));
+      if (bookingsData) this._bookings.set(JSON.parse(bookingsData));
+      if (currentUserData) this.currentUser.set(JSON.parse(currentUserData));
+
+      // Initialize with demo data if no users exist
+      if (this._users().length === 0) {
+        this.initializeDemoData();
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+      this.initializeDemoData();
+    }
+  }
+
+  private initializeDemoData() {
+    const demoUsers: User[] = [
+      {
+        id: 'user_alex',
+        name: 'Alex Chen',
+        email: 'alex@cjtravel.com',
+        password: '123',
+        role: 'guide',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Alex+Chen&background=4f46e5',
+        phone: '+976-9999-1234',
+        bio: 'Professional mountain guide with 10+ years experience',
+        location: 'Ulaanbaatar, Mongolia',
+        rating: 4.9,
+        reviews: [],
+        followers: [],
+        following: []
+      },
+      {
+        id: 'user_sarah',
+        name: 'Sarah Johnson',
+        email: 'sarah@gmail.com',
+        password: '123',
+        role: 'traveler',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=ec4899',
+        phone: '+1-555-0123',
+        bio: 'Adventure seeker and travel blogger',
+        location: 'New York, USA',
+        rating: 0,
+        reviews: [],
+        followers: [],
+        following: []
+      },
+      {
+        id: 'user_nomadcamp',
+        name: 'Nomad Camp Mongolia',
+        email: 'contact@nomadcamp.mn',
+        password: '123',
+        role: 'provider',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Nomad+Camp&background=10b981',
+        phone: '+976-8888-5678',
+        bio: 'Authentic nomadic experiences in the Mongolian countryside',
+        location: 'Terelj, Mongolia',
+        rating: 4.8,
+        reviews: [],
+        followers: [],
+        following: []
+      }
+    ];
+
+    this._users.set(demoUsers);
+  }
 }
