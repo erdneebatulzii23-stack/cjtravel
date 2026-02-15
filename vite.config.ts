@@ -1,10 +1,30 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type ResolvedConfig } from 'vite';
 import angular from '@analogjs/vite-plugin-angular';
 import path from 'path';
+import type { Plugin } from 'vite';
+
+// Plugin to update base href in index.html based on the base path
+function htmlBaseHrefPlugin(): Plugin {
+  let config: ResolvedConfig;
+  return {
+    name: 'html-base-href',
+    configResolved(resolvedConfig) {
+      config = resolvedConfig;
+    },
+    transformIndexHtml(html) {
+      const base = config.base || '/';
+      return html.replace(
+        /<base href="[^"]*"\s*\/>/,
+        `<base href="${base}"/>`
+      );
+    }
+  };
+}
 
 export default defineConfig({
   plugins: [
     angular(),
+    htmlBaseHrefPlugin(),
   ],
   resolve: {
     alias: {
