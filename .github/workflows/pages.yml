@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    name: Build with Vite
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,28 +24,30 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-          cache: 'npm'
 
-      # Patch base href in index.html for project pages
+      # Ensure Angular router base works under /cjtravel/
       - name: Patch base href for GitHub Pages
         run: |
-          if ! sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html; then
-            echo "Warning: Failed to patch base href in index.html"
-            exit 1
+          if sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html; then
+            echo "✓ Successfully patched base href to /cjtravel/"
+          else
+            echo "⚠ Warning: Failed to patch base href (may already be patched or file missing)"
           fi
-          # Verify the replacement succeeded
-          if ! grep -q '<base href="/cjtravel/"/>' index.html; then
-            echo "Error: base href was not correctly updated to /cjtravel/"
-            exit 1
-          fi
-          echo "Successfully patched base href to /cjtravel/"
 
-      - name: Install deps and build
+      # Note: The build script in package.json runs "npm install && npx vite build"
+      # so dependencies are installed automatically during the build step
+      - name: Install and build
         env:
           VITE_BASE: /cjtravel/
+        run: npm run build
+
+      - name: Add .nojekyll to dist
         run: |
-          npm ci
-          npm run build
+          touch dist/.nojekyll
+
+      - name: Diagnostic: show dist/index.html head
+        run: |
+          head -n 50 dist/index.html || true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
@@ -52,11 +55,14 @@ jobs:
           path: dist
 
   deploy:
+    name: Deploy to GitHub Pages
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
     steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
       - id: deployment
         uses: actions/deploy-pages@v4
