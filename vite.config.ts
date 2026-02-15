@@ -12,11 +12,13 @@ export default defineConfig({
     },
   },
   build: {
-    outDir: 'dist/client',
+    outDir: 'dist',
     emptyOutDir: true,
     target: 'es2020',
   },
-  base: '/',
+  // GitHub Pages: set VITE_BASE='/cjtravel/' in CI
+  // DigitalOcean: set VITE_BASE='/'
+  base: process.env.VITE_BASE ?? '/',
   server: {
     port: 4200,
   }
