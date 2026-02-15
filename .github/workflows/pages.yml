@@ -28,8 +28,13 @@ jobs:
       # Ensure Angular router base works under /cjtravel/
       - name: Patch base href for GitHub Pages
         run: |
-          sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html || true
+          if sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html; then
+            echo "✓ Successfully patched base href to /cjtravel/"
+          else
+            echo "⚠ Warning: Failed to patch base href (may already be patched or file missing)"
+          fi
 
+      # Note: npm run build includes npm install (see package.json)
       - name: Install and build
         env:
           VITE_BASE: /cjtravel/
