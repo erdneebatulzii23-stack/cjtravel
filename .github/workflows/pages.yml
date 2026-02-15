@@ -28,7 +28,16 @@ jobs:
       # Patch base href in index.html for project pages
       - name: Patch base href for GitHub Pages
         run: |
-          sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html || true
+          if ! sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html; then
+            echo "Warning: Failed to patch base href in index.html"
+            exit 1
+          fi
+          # Verify the replacement succeeded
+          if ! grep -q '<base href="/cjtravel/"/>' index.html; then
+            echo "Error: base href was not correctly updated to /cjtravel/"
+            exit 1
+          fi
+          echo "Successfully patched base href to /cjtravel/"
 
       - name: Install deps and build
         env:
