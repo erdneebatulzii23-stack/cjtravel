@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, effect, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { User, Post, UserRole, Message, Story, Booking, AppNotification, NotificationType, Review } from '../types';
+import { User, Post, UserRole, UserStatus, Message, Story, Booking, AppNotification, NotificationType, Review } from '../types';
 
 export type AppLang = 'en' | 'mn' | 'zh' | 'de' | 'ru' | 'ko' | 'ja';
 
@@ -98,5 +98,468 @@ isOnline = signal(true);
      }
   }
 
-  // ... (rest of the class remains unchanged)  
+  // User Authentication Methods
+  // NOTE: Plain-text password storage is used for demo purposes only.
+  // In production, use bcrypt or similar hashing library for password security.
+  login(email: string, pass: string): boolean {
+    const user = this._users().find(u => u.email === email && u.password === pass);
+    if (user) {
+      this.currentUser.set(user);
+      return true;
+    }
+    return false;
+  }
+
+  register(name: string, email: string, pass: string, role: UserRole): boolean {
+    // Check if user already exists
+    if (this._users().find(u => u.email === email)) {
+      return false;
+    }
+
+    // NOTE: Password is stored in plain-text for demo purposes only.
+    // In production, hash passwords using bcrypt or Argon2 before storage.
+    const newUser: User = {
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      name,
+      email,
+      password: pass,
+      role,
+      status: role === 'traveler' ? 'active' : 'pending',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+      phone: '',
+      bio: '',
+      location: '',
+      rating: 0,
+      reviews: [],
+      followers: [],
+      following: [],
+      settings: {
+        showEmail: false,
+        showPhone: false
+      }
+    };
+
+    this._users.update(users => [...users, newUser]);
+    this.currentUser.set(newUser);
+    return true;
+  }
+
+  logout() {
+    this.currentUser.set(null);
+  }
+
+  // Overlay Management
+  toggleOverlay(type: 'translator' | 'chat' | 'notifications' | 'call' | 'story_viewer' | 'lang_selector' | 'booking' | 'approvals' | null) {
+    if (this.activeOverlay() === type) {
+      this.activeOverlay.set(null);
+    } else {
+      this.activeOverlay.set(type);
+    }
+  }
+
+  // Post Management
+  addPost(
+    content: string,
+    mediaUrl?: string,
+    mediaType?: 'image' | 'video',
+    isService: boolean = false,
+    filter?: string,
+    price?: number,
+    title?: string,
+    maxCapacity?: number,
+    location?: string
+  ) {
+    if (!this.currentUser()) return;
+
+    const newPost: Post = {
+      id: `post_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      userId: this.currentUser()!.id,
+      userName: this.currentUser()!.name,
+      userAvatar: this.currentUser()!.avatar,
+      userRole: this.currentUser()!.role,
+      content,
+      mediaUrl,
+      mediaType,
+      filter,
+      location,
+      likes: 0,
+      likedBy: [],
+      comments: [],
+      isService,
+      title,
+      price,
+      maxCapacity,
+      createdAt: new Date(),
+      reports: []
+    };
+    
+    this._posts.update(posts => [newPost, ...posts]);
+  }
+
+  updatePost(updatedPost: Post) {
+    this._posts.update(posts => 
+      posts.map(p => p.id === updatedPost.id ? updatedPost : p)
+    );
+  }
+
+  deletePost(postId: string) {
+    this._posts.update(posts => posts.filter(p => p.id !== postId));
+  }
+
+  // Story Management
+  addStory(imageUrl: string, filter: string = 'none') {
+    if (!this.currentUser()) return;
+    
+    const newStory: Story = {
+      id: `story_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
+      userId: this.currentUser()!.id,
+      userName: this.currentUser()!.name,
+      avatar: this.currentUser()!.avatar,
+      image: imageUrl,
+      filter,
+      viewed: false,
+      createdAt: new Date(),
+      likes: 0,
+      views: 0,
+      isPublicViews: true,
+      likedByViewer: false
+    };
+    this._stories.update(stories => [...stories, newStory]);
+  }
+
+  deleteStory(storyId: string) {
+    this._stories.update(stories => stories.filter(s => s.id !== storyId));
+  }
+
+  // User Management (Admin)
+  approveUser(userId: string) {
+    this._users.update(users =>
+      users.map(u => u.id === userId ? { ...u, status: 'active' as UserStatus } : u)
+    );
+  }
+
+  rejectUser(userId: string) {
+    this._users.update(users =>
+      users.map(u => u.id === userId ? { ...u, status: 'rejected' as UserStatus } : u)
+    );
+  }
+
+  // Message Management
+  addMessage(message: Message) {
+    this._messages.update(messages => [...messages, message]);
+  }
+
+  // Notification Management
+  addNotification(notification: AppNotification) {
+    this._notifications.update(notifications => [notification, ...notifications]);
+  }
+
+  clearNotifications() {
+    this._notifications.set([]);
+  }
+
+  // Booking Management
+  addBooking(booking: Booking) {
+    this._bookings.update(bookings => [...bookings, booking]);
+  }
+
+  // User Query Methods
+  getUsersByRole(role: UserRole) {
+    return this._users().filter(u => u.role === role && u.status === 'active');
+  }
+
+  setViewUser(user: User | null) {
+    this.viewingUser.set(user);
+  }
+
+  setMyProfileAsView() {
+    this.viewingUser.set(this.currentUser());
+  }
+
+  // Notification Methods
+  markNotificationRead(notificationId: string) {
+    this._notifications.update(notifications =>
+      notifications.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    );
+  }
+
+  // Post Navigation
+  openPost(post: Post) {
+    this.activePost.set(post);
+  }
+
+  // Story Navigation
+  navigateStory(direction: 'prev' | 'next') {
+    const stories = this._stories();
+    const currentIndex = stories.findIndex(s => s.id === this.activeStory()?.id);
+    if (direction === 'next' && currentIndex < stories.length - 1) {
+      this.activeStory.set(stories[currentIndex + 1]);
+    } else if (direction === 'prev' && currentIndex > 0) {
+      this.activeStory.set(stories[currentIndex - 1]);
+    }
+  }
+
+  replyToStory(storyId: string, message: string) {
+    // In a real app, this would send a DM to the story creator
+    const story = this._stories().find(s => s.id === storyId);
+    if (story && this.currentUser()) {
+      const newMessage: Message = {
+        id: `msg_${Date.now()}`,
+        senderId: this.currentUser()!.id,
+        receiverId: story.userId,
+        text: message,
+        type: 'story_reply',
+        timestamp: new Date()
+      };
+      this.addMessage(newMessage);
+    }
+  }
+
+  // Message Methods
+  sendMessage(to: string, content: string) {
+    if (!this.currentUser()) return;
+    
+    const newMessage: Message = {
+      id: `msg_${Date.now()}`,
+      senderId: this.currentUser()!.id,
+      receiverId: to,
+      text: content,
+      type: 'text',
+      timestamp: new Date()
+    };
+    this.addMessage(newMessage);
+  }
+
+  startChat(user: User) {
+    this.activeChatUser.set(user);
+    this.activeOverlay.set('chat');
+  }
+
+  // Post Interaction Methods
+  addComment(postId: string, comment: string) {
+    if (!this.currentUser()) return;
+
+    this._posts.update(posts =>
+      posts.map(p => {
+        if (p.id === postId) {
+          const newComment = {
+            id: `comment_${Date.now()}`,
+            userId: this.currentUser()!.id,
+            userName: this.currentUser()!.name,
+            userAvatar: this.currentUser()!.avatar,
+            text: comment,
+            createdAt: new Date()
+          };
+          return { ...p, comments: [...p.comments, newComment] };
+        }
+        return p;
+      })
+    );
+  }
+
+  reportPost(postId: string, reason: string) {
+    if (!this.currentUser()) return;
+
+    this._posts.update(posts =>
+      posts.map(p => {
+        if (p.id === postId) {
+          const report = {
+            reporterId: this.currentUser()!.id,
+            reason,
+            createdAt: new Date()
+          };
+          return { ...p, reports: [...p.reports, report] };
+        }
+        return p;
+      })
+    );
+  }
+
+  // Story Interaction Methods
+  viewStory(story: Story) {
+    this.activeStory.set(story);
+    this.activeOverlay.set('story_viewer');
+    
+    // Mark as viewed
+    this._stories.update(stories =>
+      stories.map(s => s.id === story.id ? { ...s, viewed: true, views: s.views + 1 } : s)
+    );
+  }
+
+  // Profile Methods
+  toggleFollow(userId: string) {
+    if (!this.currentUser()) return;
+
+    const currentUserId = this.currentUser()!.id;
+    const isFollowing = this.currentUser()!.following.includes(userId);
+
+    // Update current user's following list
+    this._users.update(users =>
+      users.map(u => {
+        if (u.id === currentUserId) {
+          const following = isFollowing
+            ? u.following.filter(id => id !== userId)
+            : [...u.following, userId];
+          this.currentUser.set({ ...u, following });
+          return { ...u, following };
+        }
+        if (u.id === userId) {
+          const followers = isFollowing
+            ? u.followers.filter(id => id !== currentUserId)
+            : [...u.followers, currentUserId];
+          return { ...u, followers };
+        }
+        return u;
+      })
+    );
+  }
+
+  updateProfile(updates: Partial<User>) {
+    if (!this.currentUser()) return;
+
+    const currentUserId = this.currentUser()!.id;
+    this._users.update(users =>
+      users.map(u => {
+        if (u.id === currentUserId) {
+          const updated = { ...u, ...updates };
+          this.currentUser.set(updated);
+          return updated;
+        }
+        return u;
+      })
+    );
+  }
+
+  createBooking(
+    providerId: string,
+    providerName: string,
+    date: Date,
+    peopleCount: number,
+    serviceTitle: string,
+    totalPrice: number,
+    notes: string
+  ) {
+    if (!this.currentUser()) return;
+
+    const newBooking: Booking = {
+      id: `booking_${Date.now()}`,
+      providerId,
+      providerName,
+      customerId: this.currentUser()!.id,
+      customerName: this.currentUser()!.name,
+      date,
+      peopleCount,
+      totalPrice,
+      serviceTitle,
+      notes,
+      status: 'pending',
+      createdAt: new Date()
+    };
+
+    this.addBooking(newBooking);
+  }
+
+  // Helper Methods
+  private checkOnlineStatus() {
+    if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
+      this.isOnline.set(navigator.onLine);
+    }
+  }
+
+  private loadFromStorage() {
+    try {
+      const usersData = localStorage.getItem('cj_users');
+      const postsData = localStorage.getItem('cj_posts');
+      const storiesData = localStorage.getItem('cj_stories');
+      const messagesData = localStorage.getItem('cj_messages');
+      const notificationsData = localStorage.getItem('cj_notifications');
+      const bookingsData = localStorage.getItem('cj_bookings');
+      const currentUserData = localStorage.getItem('cj_current_user');
+
+      if (usersData) this._users.set(JSON.parse(usersData));
+      if (postsData) this._posts.set(JSON.parse(postsData));
+      if (storiesData) this._stories.set(JSON.parse(storiesData));
+      if (messagesData) this._messages.set(JSON.parse(messagesData));
+      if (notificationsData) this._notifications.set(JSON.parse(notificationsData));
+      if (bookingsData) this._bookings.set(JSON.parse(bookingsData));
+      if (currentUserData) this.currentUser.set(JSON.parse(currentUserData));
+
+      // Initialize with demo data if no users exist
+      if (this._users().length === 0) {
+        this.initializeDemoData();
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+      this.initializeDemoData();
+    }
+  }
+
+  private initializeDemoData() {
+    // NOTE: Demo accounts use weak passwords for testing convenience.
+    // These are clearly marked as demo accounts and should not be used in production.
+    const demoUsers: User[] = [
+      {
+        id: 'user_alex',
+        name: 'Alex Chen',
+        email: 'alex@cjtravel.com',
+        password: '123',
+        role: 'guide',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Alex+Chen&background=4f46e5',
+        phone: '+976-9999-1234',
+        bio: 'Professional mountain guide with 10+ years experience',
+        location: 'Ulaanbaatar, Mongolia',
+        rating: 4.9,
+        reviews: [],
+        followers: [],
+        following: [],
+        settings: {
+          showEmail: true,
+          showPhone: true
+        }
+      },
+      {
+        id: 'user_sarah',
+        name: 'Sarah Johnson',
+        email: 'sarah@gmail.com',
+        password: '123',
+        role: 'traveler',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Sarah+Johnson&background=ec4899',
+        phone: '+1-555-0123',
+        bio: 'Adventure seeker and travel blogger',
+        location: 'New York, USA',
+        rating: 0,
+        reviews: [],
+        followers: [],
+        following: [],
+        settings: {
+          showEmail: false,
+          showPhone: false
+        }
+      },
+      {
+        id: 'user_nomadcamp',
+        name: 'Nomad Camp Mongolia',
+        email: 'contact@nomadcamp.mn',
+        password: '123',
+        role: 'provider',
+        status: 'active',
+        avatar: 'https://ui-avatars.com/api/?name=Nomad+Camp&background=10b981',
+        phone: '+976-8888-5678',
+        bio: 'Authentic nomadic experiences in the Mongolian countryside',
+        location: 'Terelj, Mongolia',
+        rating: 4.8,
+        reviews: [],
+        followers: [],
+        following: [],
+        settings: {
+          showEmail: true,
+          showPhone: true
+        }
+      }
+    ];
+
+    this._users.set(demoUsers);
+  }
 }
