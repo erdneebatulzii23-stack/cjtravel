@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+.npm
+.yarn
+yarn.lock
+package-lock.json
+
+# Environment Variables (IMPORTANT: Never commit API keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Backend specific
+backend/node_modules/
+backend/.env
+
+# Build Outputs (Compiled DigitalOcean files)
+dist/
+build/
+out/
+.angular/
+
+# IDE & OS Files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

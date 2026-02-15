@@ -1,0 +1,62 @@
+name: Deploy CJ Travel to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      # Patch base href in index.html for project pages
+      - name: Patch base href for GitHub Pages
+        run: |
+          if ! sed -i 's|<base href="/"/>|<base href="/cjtravel/"/>|' index.html; then
+            echo "Warning: Failed to patch base href in index.html"
+            exit 1
+          fi
+          # Verify the replacement succeeded
+          if ! grep -q '<base href="/cjtravel/"/>' index.html; then
+            echo "Error: base href was not correctly updated to /cjtravel/"
+            exit 1
+          fi
+          echo "Successfully patched base href to /cjtravel/"
+
+      - name: Install deps and build
+        env:
+          VITE_BASE: /cjtravel/
+        run: |
+          npm ci
+          npm run build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
