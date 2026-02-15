@@ -27,7 +27,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build with Vite
         env:
@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-      - name: Diagnostic show dist/index.html head
+      - name: "Diagnostic: show dist/index.html head"
         run: |
           head -n 50 dist/index.html || true
 
