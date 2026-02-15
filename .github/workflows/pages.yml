@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
 
-      - name: "Diagnostic: show dist/index.html head"
+      - name: Diagnostic show dist/index.html head
         run: |
           head -n 50 dist/index.html || true
 
