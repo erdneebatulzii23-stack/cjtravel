@@ -1,10 +1,10 @@
-console.log("!!! JAVASCRIPT ЭХЭЛЛЭЭ !!!"); // <--- Энийг нэм
-import 'zone.js';
 import 'zone.js';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { AppComponent } from './app.component';
 import { provideHttpClient } from '@angular/common/http';
 import { provideAnimations } from '@angular/platform-browser/animations';
+
+console.log("!!! JAVASCRIPT ЭХЭЛЛЭЭ !!!"); // <--- Энийг нэм
 
 bootstrapApplication(AppComponent, {
   providers: [
