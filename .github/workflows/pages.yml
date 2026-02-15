@@ -34,7 +34,8 @@ jobs:
             echo "⚠ Warning: Failed to patch base href (may already be patched or file missing)"
           fi
 
-      # Note: npm run build includes npm install (see package.json)
+      # Note: The build script in package.json runs "npm install && npx vite build"
+      # so dependencies are installed automatically during the build step
       - name: Install and build
         env:
           VITE_BASE: /cjtravel/
