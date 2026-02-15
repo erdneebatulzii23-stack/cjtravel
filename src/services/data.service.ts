@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, effect, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
-import { User, Post, UserRole, Message, Story, Booking, AppNotification, NotificationType, Review } from '../types';
+import { User, Post, UserRole, UserStatus, Message, Story, Booking, AppNotification, NotificationType, Review } from '../types';
 
 export type AppLang = 'en' | 'mn' | 'zh' | 'de' | 'ru' | 'ko' | 'ja';
 
@@ -128,7 +128,11 @@ isOnline = signal(true);
       rating: 0,
       reviews: [],
       followers: [],
-      following: []
+      following: [],
+      settings: {
+        showEmail: false,
+        showPhone: false
+      }
     };
 
     this._users.update(users => [...users, newUser]);
@@ -150,8 +154,42 @@ isOnline = signal(true);
   }
 
   // Post Management
-  addPost(post: Post) {
-    this._posts.update(posts => [post, ...posts]);
+  addPost(
+    content: string,
+    mediaUrl?: string,
+    mediaType?: 'image' | 'video',
+    isService: boolean = false,
+    filter?: string,
+    price?: number,
+    title?: string,
+    maxCapacity?: number,
+    location?: string
+  ) {
+    if (!this.currentUser()) return;
+
+    const newPost: Post = {
+      id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: this.currentUser()!.id,
+      userName: this.currentUser()!.name,
+      userAvatar: this.currentUser()!.avatar,
+      userRole: this.currentUser()!.role,
+      content,
+      mediaUrl,
+      mediaType,
+      filter,
+      location,
+      likes: 0,
+      likedBy: [],
+      comments: [],
+      isService,
+      title,
+      price,
+      maxCapacity,
+      createdAt: new Date(),
+      reports: []
+    };
+    
+    this._posts.update(posts => [newPost, ...posts]);
   }
 
   updatePost(updatedPost: Post) {
@@ -165,10 +203,22 @@ isOnline = signal(true);
   }
 
   // Story Management
-  addStory(story: Story, filter: string = 'none') {
+  addStory(imageUrl: string, filter: string = 'none') {
+    if (!this.currentUser()) return;
+    
     const newStory: Story = {
-      ...story,
-      filter
+      id: `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      userId: this.currentUser()!.id,
+      userName: this.currentUser()!.name,
+      avatar: this.currentUser()!.avatar,
+      image: imageUrl,
+      filter,
+      viewed: false,
+      createdAt: new Date(),
+      likes: 0,
+      views: 0,
+      isPublicViews: true,
+      likedByViewer: false
     };
     this._stories.update(stories => [...stories, newStory]);
   }
@@ -207,6 +257,202 @@ isOnline = signal(true);
   // Booking Management
   addBooking(booking: Booking) {
     this._bookings.update(bookings => [...bookings, booking]);
+  }
+
+  // User Query Methods
+  getUsersByRole(role: UserRole) {
+    return this._users().filter(u => u.role === role && u.status === 'active');
+  }
+
+  setViewUser(user: User | null) {
+    this.viewingUser.set(user);
+  }
+
+  setMyProfileAsView() {
+    this.viewingUser.set(this.currentUser());
+  }
+
+  // Notification Methods
+  markNotificationRead(notificationId: string) {
+    this._notifications.update(notifications =>
+      notifications.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
+    );
+  }
+
+  // Post Navigation
+  openPost(post: Post) {
+    this.activePost.set(post);
+  }
+
+  // Story Navigation
+  navigateStory(direction: 'prev' | 'next') {
+    const stories = this._stories();
+    const currentIndex = stories.findIndex(s => s.id === this.activeStory()?.id);
+    if (direction === 'next' && currentIndex < stories.length - 1) {
+      this.activeStory.set(stories[currentIndex + 1]);
+    } else if (direction === 'prev' && currentIndex > 0) {
+      this.activeStory.set(stories[currentIndex - 1]);
+    }
+  }
+
+  replyToStory(storyId: string, message: string) {
+    // In a real app, this would send a DM to the story creator
+    const story = this._stories().find(s => s.id === storyId);
+    if (story && this.currentUser()) {
+      const newMessage: Message = {
+        id: `msg_${Date.now()}`,
+        senderId: this.currentUser()!.id,
+        receiverId: story.userId,
+        text: message,
+        type: 'story_reply',
+        timestamp: new Date()
+      };
+      this.addMessage(newMessage);
+    }
+  }
+
+  // Message Methods
+  sendMessage(to: string, content: string) {
+    if (!this.currentUser()) return;
+    
+    const newMessage: Message = {
+      id: `msg_${Date.now()}`,
+      senderId: this.currentUser()!.id,
+      receiverId: to,
+      text: content,
+      type: 'text',
+      timestamp: new Date()
+    };
+    this.addMessage(newMessage);
+  }
+
+  startChat(user: User) {
+    this.activeChatUser.set(user);
+    this.activeOverlay.set('chat');
+  }
+
+  // Post Interaction Methods
+  addComment(postId: string, comment: string) {
+    if (!this.currentUser()) return;
+
+    this._posts.update(posts =>
+      posts.map(p => {
+        if (p.id === postId) {
+          const newComment = {
+            id: `comment_${Date.now()}`,
+            userId: this.currentUser()!.id,
+            userName: this.currentUser()!.name,
+            userAvatar: this.currentUser()!.avatar,
+            text: comment,
+            createdAt: new Date()
+          };
+          return { ...p, comments: [...p.comments, newComment] };
+        }
+        return p;
+      })
+    );
+  }
+
+  reportPost(postId: string, reason: string) {
+    if (!this.currentUser()) return;
+
+    this._posts.update(posts =>
+      posts.map(p => {
+        if (p.id === postId) {
+          const report = {
+            reporterId: this.currentUser()!.id,
+            reason,
+            createdAt: new Date()
+          };
+          return { ...p, reports: [...p.reports, report] };
+        }
+        return p;
+      })
+    );
+  }
+
+  // Story Interaction Methods
+  viewStory(story: Story) {
+    this.activeStory.set(story);
+    this.activeOverlay.set('story_viewer');
+    
+    // Mark as viewed
+    this._stories.update(stories =>
+      stories.map(s => s.id === story.id ? { ...s, viewed: true, views: s.views + 1 } : s)
+    );
+  }
+
+  // Profile Methods
+  toggleFollow(userId: string) {
+    if (!this.currentUser()) return;
+
+    const currentUserId = this.currentUser()!.id;
+    const isFollowing = this.currentUser()!.following.includes(userId);
+
+    // Update current user's following list
+    this._users.update(users =>
+      users.map(u => {
+        if (u.id === currentUserId) {
+          const following = isFollowing
+            ? u.following.filter(id => id !== userId)
+            : [...u.following, userId];
+          this.currentUser.set({ ...u, following });
+          return { ...u, following };
+        }
+        if (u.id === userId) {
+          const followers = isFollowing
+            ? u.followers.filter(id => id !== currentUserId)
+            : [...u.followers, currentUserId];
+          return { ...u, followers };
+        }
+        return u;
+      })
+    );
+  }
+
+  updateProfile(updates: Partial<User>) {
+    if (!this.currentUser()) return;
+
+    const currentUserId = this.currentUser()!.id;
+    this._users.update(users =>
+      users.map(u => {
+        if (u.id === currentUserId) {
+          const updated = { ...u, ...updates };
+          this.currentUser.set(updated);
+          return updated;
+        }
+        return u;
+      })
+    );
+  }
+
+  createBooking(
+    providerId: string,
+    providerName: string,
+    date: Date,
+    peopleCount: number,
+    serviceTitle: string,
+    totalPrice: number,
+    notes: string
+  ) {
+    if (!this.currentUser()) return;
+
+    const newBooking: Booking = {
+      id: `booking_${Date.now()}`,
+      providerId,
+      providerName,
+      customerId: this.currentUser()!.id,
+      customerName: this.currentUser()!.name,
+      date,
+      peopleCount,
+      totalPrice,
+      serviceTitle,
+      notes,
+      status: 'pending',
+      createdAt: new Date()
+    };
+
+    this.addBooking(newBooking);
   }
 
   // Helper Methods
@@ -260,7 +506,11 @@ isOnline = signal(true);
         rating: 4.9,
         reviews: [],
         followers: [],
-        following: []
+        following: [],
+        settings: {
+          showEmail: true,
+          showPhone: true
+        }
       },
       {
         id: 'user_sarah',
@@ -276,7 +526,11 @@ isOnline = signal(true);
         rating: 0,
         reviews: [],
         followers: [],
-        following: []
+        following: [],
+        settings: {
+          showEmail: false,
+          showPhone: false
+        }
       },
       {
         id: 'user_nomadcamp',
@@ -292,7 +546,11 @@ isOnline = signal(true);
         rating: 4.8,
         reviews: [],
         followers: [],
-        following: []
+        following: [],
+        settings: {
+          showEmail: true,
+          showPhone: true
+        }
       }
     ];
 
