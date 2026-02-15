@@ -463,20 +463,20 @@ isOnline = signal(true);
   async uploadFile(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
       if (!file) {
-        reject('No file provided');
+        reject(new Error('No file provided'));
         return;
       }
 
       // Validate file type (images only)
       if (!file.type.startsWith('image/')) {
-        reject('Only image files are allowed');
+        reject(new Error('Only image files are allowed'));
         return;
       }
 
       // Validate file size (max 5MB)
       const maxSize = 5 * 1024 * 1024; // 5MB in bytes
       if (file.size > maxSize) {
-        reject('File size must be less than 5MB');
+        reject(new Error('File size must be less than 5MB'));
         return;
       }
 
@@ -488,7 +488,7 @@ isOnline = signal(true);
       };
       
       reader.onerror = () => {
-        reject('Error reading file');
+        reject(reader.error || new Error('Error reading file'));
       };
 
       reader.readAsDataURL(file);
