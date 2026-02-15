@@ -99,6 +99,8 @@ isOnline = signal(true);
   }
 
   // User Authentication Methods
+  // NOTE: Plain-text password storage is used for demo purposes only.
+  // In production, use bcrypt or similar hashing library for password security.
   login(email: string, pass: string): boolean {
     const user = this._users().find(u => u.email === email && u.password === pass);
     if (user) {
@@ -114,8 +116,10 @@ isOnline = signal(true);
       return false;
     }
 
+    // NOTE: Password is stored in plain-text for demo purposes only.
+    // In production, hash passwords using bcrypt or Argon2 before storage.
     const newUser: User = {
-      id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `user_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       name,
       email,
       password: pass,
@@ -168,7 +172,7 @@ isOnline = signal(true);
     if (!this.currentUser()) return;
 
     const newPost: Post = {
-      id: `post_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `post_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       userId: this.currentUser()!.id,
       userName: this.currentUser()!.name,
       userAvatar: this.currentUser()!.avatar,
@@ -207,7 +211,7 @@ isOnline = signal(true);
     if (!this.currentUser()) return;
     
     const newStory: Story = {
-      id: `story_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `story_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`,
       userId: this.currentUser()!.id,
       userName: this.currentUser()!.name,
       avatar: this.currentUser()!.avatar,
@@ -491,6 +495,8 @@ isOnline = signal(true);
   }
 
   private initializeDemoData() {
+    // NOTE: Demo accounts use weak passwords for testing convenience.
+    // These are clearly marked as demo accounts and should not be used in production.
     const demoUsers: User[] = [
       {
         id: 'user_alex',
