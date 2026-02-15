@@ -459,6 +459,42 @@ isOnline = signal(true);
     this.addBooking(newBooking);
   }
 
+  // File Upload Method
+  async uploadFile(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject('No file provided');
+        return;
+      }
+
+      // Validate file type (images only)
+      if (!file.type.startsWith('image/')) {
+        reject('Only image files are allowed');
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        reject('File size must be less than 5MB');
+        return;
+      }
+
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        resolve(result);
+      };
+      
+      reader.onerror = () => {
+        reject('Error reading file');
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
   // Helper Methods
   private checkOnlineStatus() {
     if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
