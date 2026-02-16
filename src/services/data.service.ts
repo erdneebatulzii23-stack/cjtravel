@@ -459,6 +459,46 @@ isOnline = signal(true);
     this.addBooking(newBooking);
   }
 
+  // File Upload Method
+  async uploadFile(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      if (!file) {
+        reject(new Error('No file provided'));
+        return;
+      }
+
+      // Validate file type (images only)
+      if (!file.type.startsWith('image/')) {
+        reject(new Error('Only image files are allowed'));
+        return;
+      }
+
+      // Validate file size (max 5MB)
+      const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+      if (file.size > maxSize) {
+        reject(new Error('File size must be less than 5MB'));
+        return;
+      }
+
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        const result = e.target?.result;
+        if (!result || typeof result !== 'string') {
+          reject(new Error('Failed to read file as data URL'));
+          return;
+        }
+        resolve(result);
+      };
+      
+      reader.onerror = () => {
+        reject(reader.error || new Error('Failed to read file contents'));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
   // Helper Methods
   private checkOnlineStatus() {
     if (typeof navigator !== 'undefined' && navigator.onLine !== undefined) {
